@@ -1,0 +1,93 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <AzureFunctionsVersion>v2</AzureFunctionsVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.StaticFiles" Version="2.2.0" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.24" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="host.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="local.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+  
+  <PropertyGroup>
+    <Spa>SPA\</Spa>
+    <SpaDepsStamp>$(Spa)node_modules\.install-stamp</SpaDepsStamp>
+    <SpaBuildDir>$(Spa)build\</SpaBuildDir>
+  </PropertyGroup>
+    
+   <ItemGroup>
+    <Compile Remove="$(Spa)node_modules\**;$(Spa)build\**" />
+    <EmbeddedResource Remove="$(Spa)node_modules\**;$(Spa)build\**" />
+    <None Remove="$(Spa)node_modules\**;$(Spa)build\**" />
+    <ReactSrc Include="$(Spa)\src\**;$(Spa)\public\**;$(Spa)\package.json" Exclude="*.test.tsx;*.test.ts;*.test.jsx;*.test.js;$(Spa)**\test\**;$(Spa)**\__snapshots__\**" />
+  </ItemGroup>
+  
+  <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <!-- Ensure Node.js is installed -->
+    <Exec Command="node --version" ContinueOnError="true">
+      <Output TaskParameter="ExitCode" PropertyName="ErrorCode" />
+    </Exec>
+    
+    <Error Condition="'$(ErrorCode)' != '0'" Text="Node.js is required to build and run this project. To continue, please install Node.js from https://nodejs.org/, and then restart your command prompt or IDE." />
+  </Target>
+
+  <Target Name="InstallReactDependencies" DependsOnTargets="DebugEnsureNodeEnv" AfterTargets="PrepareForBuild" Inputs="$(Spa)package.json" Outputs="$(SpaDepsStamp)">
+    <Exec WorkingDirectory="$(Spa)" Command="yarn install" />
+    <Touch Files="$(SpaDepsStamp)" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="BuildReactApp" AfterTargets="GetTargetPath" Inputs="@(ReactSrc)" Outputs="$(SpaBuildDir)index.html">
+    <Error Condition="!Exists('$(SpaDepsStamp)')" Text="React dependencies were not found. Please run Restore to install React dependencies." />
+    <Exec WorkingDirectory="$(Spa)" Command="yarn build" />
+    <ItemGroup>
+      <FileWrites Include="$(SpaBuildDir)**" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_GetReactBuildOutput" Returns="@(AllItemsFullPathWithTargetPath)">
+    <ItemGroup>
+      <_ReactBuildOutputFiles Include="$(SpaBuildDir)**" />
+      <_ReactBuildOutput Include="@(_ReactBuildOutputFiles)">
+          <TargetPath>$(Spa)%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+          <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </_ReactBuildOutput>
+      <AllItemsFullPathWithTargetPath Include="@(_ReactBuildOutput->'%(FullPath)')" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyReactBuildOutputToBuildOutput" AfterTargets="CopyFilesToOutputDirectory" DependsOnTargets="_GetReactBuildOutput">
+    <Copy SourceFiles="@(_ReactBuildOutput)" DestinationFiles="@(_ReactBuildOutput->'$(OutDir)..\%(TargetPath)')" SkipUnchangedFiles="$(SkipCopyUnchangedFiles)" OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)" Retries="$(CopyRetryCount)" RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)" UseHardlinksIfPossible="$(CreateHardLinksForCopyFilesToOutputDirectoryIfPossible)" UseSymboliclinksIfPossible="$(CreateSymbolicLinksForCopyFilesToOutputDirectoryIfPossible)" Condition="'$(CopyBuildOutputToOutputDirectory)' == 'true' and '$(SkipCopyBuildProduct)' != 'true'">
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+
+  <Target Name="GetCopyToOutputDirectoryReactApp" DependsOnTargets="_GetReactBuildOutput" BeforeTargets="GetCopyToOutputDirectoryItems" />
+
+  <Target Name="GetCopyToPublishDirectoryReactApp" DependsOnTargets="_GetReactBuildOutput" BeforeTargets="GetCopyToPublishDirectoryItems" Returns="@(AllPublishItemsFullPathWithTargetPath)">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="@(_ReactBuildOutput->'%(FullPath)')">
+        <RelativePath>%(_ReactBuildOutput.TargetPath)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <AllPublishItemsFullPathWithTargetPath Include="@(_ReactBuildOutput->'%(FullPath)')">
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </AllPublishItemsFullPathWithTargetPath>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CleanReactBuildDirectory" AfterTargets="Clean">
+    <RemoveDir Directories="$(SpaBuildDir)" ContinueOnError="true" />
+  </Target>
+
+</Project>
