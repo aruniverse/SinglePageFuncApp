@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json.schemastore.org/proxies",
+  "proxies": {
+    "auth": {
+      "matchCondition": {
+        "route": "/.auth/{*rest}"
+      },
+      "backendUri": "https://localhost/.auth/{*rest}"
+    },
+    "fileserver": {
+      "matchCondition": {
+        "methods": [ "GET", "HEAD", "OPTIONS" ],
+        "route": "/api/fileserver/{*filename}"
+      }
+    },
+    "api": {
+      "matchCondition": {
+        "route": "/api/{*endpoint}"
+      },
+      "backendUri": "https://localhost/api/{endpoint}",
+      "responseOverrides": {
+        "response.headers.X-Content-Type-Options": "nosniff",
+        "response.headers.Cache-Control": "no-cache, no-store, must-revalidate",
+        "response.headers.Pragma": "no-cache"
+      }
+    },
+    "static": {
+      "matchCondition": {
+        "methods": [ "GET", "HEAD", "OPTIONS" ],
+        "route": "/static/{*path}"
+      },
+      "backendUri": "https://localhost/api/fileserver/static/{path}"
+    },
+    "default-ui": {
+      "matchCondition": {
+        "methods": [ "GET", "HEAD", "OPTIONS" ],
+        "route": "/{file}"
+      },
+      "backendUri": "https://localhost/api/fileserver/{file}"
+    },
+    "remaining": {
+      "matchCondition": {
+        "methods": [ "GET", "HEAD", "OPTIONS" ],
+        "route": "/{*remaining}"
+      },
+      "backendUri": "https://localhost/api/fileserver/index.html",
+      "responseOverrides": {
+        "response.headers.X-XSS-Protection": "1; mode=block",
+        "response.headers.X-Frame-Options": "DENY"
+      }
+    }
+  }
+}
